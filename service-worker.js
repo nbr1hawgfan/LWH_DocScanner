@@ -1,5 +1,5 @@
 // LWH Driver Scan - Service Worker
-const CACHE_NAME = "lwh-driver-scan-v1.4.1";
+const CACHE_NAME = "lwh-driver-scan-v1.5.0";
 
 const APP_SHELL = [
   "./",

@@ -297,8 +297,8 @@ const App = (() => {
       y: rect.offY + p.y * rect.dispH
     }));
 
-    ctx.strokeStyle = stable ? "#3fa668" : "#a8214a";
-    ctx.fillStyle = stable ? "rgba(63,166,104,0.18)" : "rgba(168,33,74,0.15)";
+    ctx.strokeStyle = stable ? "#3fa668" : "#0e6e8c";
+    ctx.fillStyle = stable ? "rgba(63,166,104,0.18)" : "rgba(14,110,140,0.15)";
     ctx.lineWidth = stable ? 4 : 3;
     ctx.beginPath();
     ctx.moveTo(pts[0].x, pts[0].y);
@@ -384,14 +384,14 @@ const App = (() => {
     if (corners.length === 4) {
       const disp = corners.map((p) => ({ x: p.x * editScale, y: p.y * editScale }));
 
-      ctx.strokeStyle = "#a8214a";
+      ctx.strokeStyle = "#0e6e8c";
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(disp[0].x, disp[0].y);
       disp.slice(1).forEach((p) => ctx.lineTo(p.x, p.y));
       ctx.closePath();
       ctx.stroke();
-      ctx.fillStyle = "rgba(168,33,74,0.15)";
+      ctx.fillStyle = "rgba(14,110,140,0.15)";
       ctx.fill();
 
       disp.forEach((p) => {
@@ -400,7 +400,7 @@ const App = (() => {
         ctx.fillStyle = "#ffffff";
         ctx.fill();
         ctx.lineWidth = 3;
-        ctx.strokeStyle = "#7d1935";
+        ctx.strokeStyle = "#0a4f66";
         ctx.stroke();
       });
     }
@@ -469,7 +469,7 @@ const App = (() => {
     ctx.drawImage(canvas, sx, sy, SRC_SIZE, SRC_SIZE, 0, 0, loupe.width, loupe.height);
 
     // Crosshair marking exactly where the corner will land.
-    ctx.strokeStyle = "#a8214a";
+    ctx.strokeStyle = "#0e6e8c";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(loupe.width / 2 - 12, loupe.height / 2);

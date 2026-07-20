@@ -1,15 +1,15 @@
 :root {
-  --maroon: #7d1935;
-  --maroon-dark: #5c1226;
-  --maroon-light: #a8214a;
-  --bg: #17181a;
-  --surface: #232426;
-  --surface-raised: #2c2d30;
-  --text: #f2efe9;
-  --text-dim: #a6a6a8;
-  --border: #3a3b3e;
-  --success: #3fa668;
-  --danger: #c94040;
+  --teal: #0e6e8c;
+  --teal-dark: #0a4f66;
+  --teal-light: #17a2bf;
+  --bg: #eef5f7;
+  --surface: #ffffff;
+  --surface-raised: #f3f9fb;
+  --text: #102630;
+  --text-dim: #4d6b73;
+  --border: #cde3e9;
+  --success: #1f8a4c;
+  --danger: #c53030;
   --radius: 14px;
 }
 
@@ -39,7 +39,8 @@ body {
   align-items: center;
   gap: 12px;
   padding: 16px 20px;
-  background: linear-gradient(135deg, var(--maroon-dark), var(--maroon));
+  background: linear-gradient(135deg, var(--teal-dark), var(--teal));
+  color: #fff;
   flex-shrink: 0;
 }
 
@@ -50,6 +51,7 @@ body {
   font-weight: 700;
   margin: 0;
   letter-spacing: 0.2px;
+  color: #fff;
 }
 
 /* ---------- Screens ---------- */
@@ -72,11 +74,11 @@ body {
   width: 72px; height: 72px;
   margin: 0 auto 14px;
   border-radius: 20px;
-  background: linear-gradient(135deg, var(--maroon), var(--maroon-light));
+  background: linear-gradient(135deg, var(--teal), var(--teal-light));
   display: flex; align-items: center; justify-content: center;
 }
 .home-hero .doc-badge svg { width: 36px; height: 36px; }
-.home-hero h2 { margin: 0 0 6px; font-size: 1.3rem; }
+.home-hero h2 { margin: 0 0 6px; font-size: 1.3rem; color: var(--text); }
 .home-hero p { margin: 0; color: var(--text-dim); font-size: 0.95rem; }
 
 .btn {
@@ -97,11 +99,11 @@ body {
 .btn:active { transform: scale(0.98); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-.btn-primary { background: var(--maroon); color: #fff; }
-.btn-primary:hover { background: var(--maroon-light); }
-.btn-secondary { background: var(--surface-raised); color: var(--text); border: 1px solid var(--border); }
-.btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
-.btn-danger-outline { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: var(--teal-light); }
+.btn-secondary { background: var(--surface-raised); color: var(--text); border: 1.5px solid var(--border); }
+.btn-ghost { background: transparent; color: var(--text-dim); border: 1.5px solid var(--border); }
+.btn-danger-outline { background: transparent; color: var(--danger); border: 1.5px solid var(--danger); }
 .btn-block { width: 100%; }
 .btn-lg { min-height: 68px; font-size: 1.15rem; }
 
@@ -112,10 +114,13 @@ body {
   color: var(--text-dim);
   font-size: 0.75rem;
   margin: 20px 0 0;
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
 /* ---------- Camera ---------- */
+/* Deliberately stays dark regardless of the app's light theme — a bright
+   surround around a live camera viewfinder is jarring and washes out the
+   detection overlay; every camera app does this the same way. */
 .screen-camera { padding: 0; position: relative; background: #000; }
 .camera-wrap { position: relative; flex: 1; overflow: hidden; background: #000; }
 #video { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -161,7 +166,7 @@ body {
 .capture-btn:active { background: #ddd; }
 .capture-btn:disabled { background: #888; cursor: not-allowed; }
 .capture-btn.armed {
-  border-color: #3fa668;
+  border-color: var(--success);
   animation: capture-pulse 0.6s ease-in-out infinite;
 }
 @keyframes capture-pulse {
@@ -181,6 +186,9 @@ body {
 }
 
 /* ---------- Edit / corner adjust ---------- */
+/* Also stays dark — this is a photo viewer, and a black surround is the
+   correct backdrop for judging a scanned page's actual brightness/contrast,
+   the same reason photo-editing apps don't put a white mat around the image. */
 .edit-canvas-wrap {
   position: relative;
   display: flex;
@@ -213,7 +221,7 @@ body {
 
 /* ---------- Pages review ---------- */
 .pages-toolbar { display: flex; align-items: center; justify-content: space-between; }
-.pages-toolbar h2 { margin: 0; font-size: 1.05rem; }
+.pages-toolbar h2 { margin: 0; font-size: 1.05rem; color: var(--text); }
 .pages-toolbar span { color: var(--text-dim); font-size: 0.9rem; }
 
 .filter-chips { display: flex; gap: 8px; }
@@ -221,7 +229,7 @@ body {
   flex: 1;
   padding: 10px;
   border-radius: 10px;
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   background: var(--surface-raised);
   color: var(--text-dim);
   text-align: center;
@@ -229,7 +237,7 @@ body {
   font-size: 0.88rem;
   font-family: inherit;
 }
-.chip.active { background: var(--maroon); border-color: var(--maroon); color: #fff; }
+.chip.active { background: var(--teal); border-color: var(--teal); color: #fff; }
 
 .page-list {
   display: flex;
@@ -239,7 +247,7 @@ body {
 .page-thumb {
   position: relative;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
@@ -306,22 +314,22 @@ body {
 /* ---------- Result ---------- */
 .result-summary {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: var(--radius);
   padding: 16px;
   display: flex;
   align-items: center;
   gap: 12px;
 }
-.result-summary svg { width: 28px; height: 28px; flex-shrink: 0; color: var(--maroon-light); }
+.result-summary svg { width: 28px; height: 28px; flex-shrink: 0; color: var(--teal); }
 
 label.field-label { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 4px; display: block; }
 input.pdf-name {
   width: 100%;
   padding: 14px;
   border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface-raised);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
   color: var(--text);
   font-size: 1rem;
   font-family: inherit;
@@ -333,17 +341,17 @@ input.pdf-name {
 .install-banner {
   position: fixed;
   left: 16px; right: 16px; bottom: 16px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
   border-radius: var(--radius);
   padding: 14px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  box-shadow: 0 8px 24px rgba(16,38,48,0.18);
   z-index: 50;
 }
-.install-banner p { margin: 0; font-size: 0.88rem; flex: 1; }
+.install-banner p { margin: 0; font-size: 0.88rem; flex: 1; color: var(--text); }
 .install-banner .btn { min-height: 44px; padding: 10px 14px; font-size: 0.88rem; }
 
 input[type="file"] { display: none; }
