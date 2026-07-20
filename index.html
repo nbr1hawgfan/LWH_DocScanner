@@ -80,6 +80,11 @@
 
   <div id="pageList" class="page-list"></div>
 
+  <div id="pageLightbox" class="lightbox hidden">
+    <img id="lightboxImg" alt="Full-size page preview" />
+    <button id="lightboxCloseBtn" class="lightbox-close" aria-label="Close">&times;</button>
+  </div>
+
   <div class="pages-actions">
     <button id="addPageBtn" class="btn btn-secondary">+ Add Page</button>
     <button id="finishBtn" class="btn btn-primary" disabled>Done</button>
@@ -99,6 +104,7 @@
   </div>
 
   <div class="result-actions">
+    <button id="previewPdfBtn" class="btn btn-secondary">Preview Full PDF</button>
     <button id="shareBtn" class="btn btn-primary btn-lg">Share / Email PDF</button>
     <button id="driveBtn" class="btn btn-secondary hidden">Back Up to Drive</button>
     <button id="downloadBtn" class="btn btn-secondary">Download PDF</button>

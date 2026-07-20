@@ -22,7 +22,8 @@ const App = (() => {
       "editCanvas", "editLoupe", "editRedetectBtn", "editConfirmBtn", "editCancelBtn", "editHint",
       "filterOriginal", "filterBw", "filterSharpen",
       "pageList", "pageCount", "addPageBtn", "finishBtn", "backHomeBtn",
-      "resultPdfName", "shareBtn", "driveBtn", "downloadBtn", "startOverBtn",
+      "pageLightbox", "lightboxImg", "lightboxCloseBtn",
+      "resultPdfName", "shareBtn", "driveBtn", "downloadBtn", "startOverBtn", "previewPdfBtn",
       "homeNewScanBtn", "homeContinueBtn", "installBanner", "installBtn", "installDismissBtn"
     ].forEach((id) => (els[id] = document.getElementById(id)));
   }
@@ -555,14 +556,17 @@ const App = (() => {
 
       const label = document.createElement("span");
       label.className = "page-thumb-label";
-      label.textContent = `Page ${i + 1}`;
+      label.textContent = `Page ${i + 1} \u2014 tap to view larger`;
       item.appendChild(label);
+
+      item.onclick = () => openLightbox(page.canvas.toDataURL("image/jpeg", 0.92));
 
       const removeBtn = document.createElement("button");
       removeBtn.className = "page-thumb-remove";
       removeBtn.setAttribute("aria-label", `Remove page ${i + 1}`);
       removeBtn.textContent = "\u00d7";
-      removeBtn.onclick = () => {
+      removeBtn.onclick = (e) => {
+        e.stopPropagation();
         pages.splice(i, 1);
         renderPageList();
       };
@@ -575,6 +579,15 @@ const App = (() => {
       setActiveFilterButton(pages[pages.length - 1].filter);
     }
     els.finishBtn.disabled = pages.length === 0;
+  }
+
+  function openLightbox(dataUrl) {
+    els.lightboxImg.src = dataUrl;
+    els.pageLightbox.classList.remove("hidden");
+  }
+
+  function closeLightbox() {
+    els.pageLightbox.classList.add("hidden");
   }
 
   async function finishAndBuildPdf() {
@@ -620,8 +633,18 @@ const App = (() => {
     els.backHomeBtn.onclick = () => { if (confirm("Discard this scan and go back?")) startOver(); };
     els.startOverBtn.onclick = startOver;
 
+    els.lightboxCloseBtn.onclick = closeLightbox;
+    els.pageLightbox.onclick = (e) => { if (e.target === els.pageLightbox) closeLightbox(); };
+
     els.shareBtn.onclick = () => ShareModule.sharePdf(pages, els.resultPdfName.value);
     els.downloadBtn.onclick = () => ShareModule.downloadPdf(pages, els.resultPdfName.value);
+    els.previewPdfBtn.onclick = () => {
+      const blob = PdfExport.buildBlob(pages);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      // Give the new tab time to actually load the blob before revoking it.
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    };
     if (CONFIG.DRIVE_BACKUP_ENABLED) {
       els.driveBtn.classList.remove("hidden");
       els.driveBtn.onclick = () => DriveModule.backup(pages, els.resultPdfName.value, els.driveBtn);
