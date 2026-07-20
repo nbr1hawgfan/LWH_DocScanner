@@ -8,13 +8,17 @@ const App = (() => {
   let dragIndex = -1;
   let currentFilter = "original";
   let rawWarpCanvas = null; // pre-filter, so switching filters doesn't compound
+  let liveDetectTimer = null;
+  let liveDetectBusy = false;
+  let stabilityHistory = [];
+  let autoCaptureArmed = false;
 
   const els = {};
 
   function cacheEls() {
     [
       "screen-home", "screen-camera", "screen-edit", "screen-pages", "screen-result",
-      "video", "captureBtn", "choosePhotoInput", "cameraCancelBtn", "cameraStatus",
+      "video", "liveOverlay", "captureBtn", "choosePhotoInput", "cameraCancelBtn", "cameraStatus",
       "editCanvas", "editLoupe", "editRedetectBtn", "editConfirmBtn", "editCancelBtn", "editHint",
       "filterOriginal", "filterBw", "filterSharpen",
       "pageList", "pageCount", "addPageBtn", "finishBtn", "backHomeBtn",
@@ -56,6 +60,7 @@ const App = (() => {
       await waitForVideoReady(els.video);
       setCameraStatus(null);
       els.captureBtn.disabled = false;
+      startLiveDetection();
     } catch (err) {
       console.error("Camera error:", err.name, err.message);
       let msg = "Couldn't start the camera. Use \u201cChoose Photo\u201d below to pick one from your gallery instead.";
@@ -111,6 +116,7 @@ const App = (() => {
   }
 
   function stopCamera() {
+    stopLiveDetection();
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       stream = null;
@@ -123,12 +129,182 @@ const App = (() => {
       alert("Camera isn't showing a live picture yet \u2014 give it a second and try again, or use \u201cChoose Photo.\u201d");
       return;
     }
+    stopLiveDetection();
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext("2d").drawImage(video, 0, 0);
     stopCamera();
     loadPhotoIntoEditor(canvas);
+  }
+
+  // ---------- Live edge detection (camera preview) ----------
+  // Runs a lightweight detection pass on the live feed every ~450ms and
+  // draws the result as an overlay. When the detected quad holds steady
+  // across a few consecutive frames, it auto-captures — no tap needed, same
+  // as the well-known scanner apps. Manual tap still always works too.
+
+  function startLiveDetection() {
+    stopLiveDetection();
+    stabilityHistory = [];
+    autoCaptureArmed = false;
+    els.captureBtn.classList.remove("armed");
+    liveDetectTimer = setInterval(liveDetectTick, 450);
+  }
+
+  function stopLiveDetection() {
+    if (liveDetectTimer) {
+      clearInterval(liveDetectTimer);
+      liveDetectTimer = null;
+    }
+    stabilityHistory = [];
+    autoCaptureArmed = false;
+    els.captureBtn.classList.remove("armed");
+    clearLiveOverlay();
+  }
+
+  function liveDetectTick() {
+    if (liveDetectBusy || !stream) return;
+    const video = els.video;
+    if (!video.videoWidth || !video.videoHeight) return;
+    if (!Scanner.isReady()) { drawDefaultGuideOverlay(); return; }
+
+    liveDetectBusy = true;
+    try {
+      // Detect on a small downscaled frame — full-res isn't needed for a
+      // live guide and keeps this fast enough to run several times a second
+      // even on a mid-range phone.
+      const targetW = 420;
+      const scale = targetW / video.videoWidth;
+      const ds = document.createElement("canvas");
+      ds.width = Math.round(video.videoWidth * scale);
+      ds.height = Math.round(video.videoHeight * scale);
+      ds.getContext("2d").drawImage(video, 0, 0, ds.width, ds.height);
+
+      const detected = Scanner.detectCorners(ds);
+
+      if (detected) {
+        const norm = detected.map((p) => ({ x: p.x / ds.width, y: p.y / ds.height }));
+        const stable = trackStability(norm);
+        drawLiveOverlay(norm, stable);
+        if (stable && !autoCaptureArmed) {
+          autoCaptureArmed = true;
+          els.captureBtn.classList.add("armed");
+          setTimeout(() => { if (liveDetectTimer) capturePhoto(); }, 350);
+        }
+      } else {
+        stabilityHistory = [];
+        if (autoCaptureArmed) { autoCaptureArmed = false; els.captureBtn.classList.remove("armed"); }
+        drawDefaultGuideOverlay();
+      }
+    } catch (err) {
+      console.error("Live detection error:", err);
+    } finally {
+      liveDetectBusy = false;
+    }
+  }
+
+  // Returns true once the last few detections agree closely enough on
+  // position and size to trust — a single lucky frame isn't enough, since a
+  // hand passing through frame can produce a one-off false positive.
+  function trackStability(norm) {
+    const cx = (norm[0].x + norm[1].x + norm[2].x + norm[3].x) / 4;
+    const cy = (norm[0].y + norm[1].y + norm[2].y + norm[3].y) / 4;
+    const area = Math.abs(shoelaceArea(norm));
+
+    stabilityHistory.push({ cx, cy, area });
+    if (stabilityHistory.length > 4) stabilityHistory.shift();
+    if (stabilityHistory.length < 4) return false;
+    if (area < 0.12) return false; // too small to trust as "the document"
+
+    const cxs = stabilityHistory.map((h) => h.cx);
+    const cys = stabilityHistory.map((h) => h.cy);
+    const areas = stabilityHistory.map((h) => h.area);
+    const spread = (arr) => Math.max(...arr) - Math.min(...arr);
+
+    return spread(cxs) < 0.025 && spread(cys) < 0.025 && spread(areas) < 0.06;
+  }
+
+  function shoelaceArea(pts) {
+    let sum = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      sum += a.x * b.y - b.x * a.y;
+    }
+    return sum / 2;
+  }
+
+  // Maps the video's raw frame coordinates onto its displayed box, since
+  // object-fit:contain letterboxes rather than crops — needed so the
+  // overlay lines up with what the driver actually sees.
+  function videoDisplayRect() {
+    const video = els.video;
+    const containerW = video.clientWidth;
+    const containerH = video.clientHeight;
+    const videoRatio = video.videoWidth / video.videoHeight;
+    const containerRatio = containerW / containerH;
+
+    let dispW, dispH, offX, offY;
+    if (videoRatio > containerRatio) {
+      dispW = containerW;
+      dispH = containerW / videoRatio;
+      offX = 0;
+      offY = (containerH - dispH) / 2;
+    } else {
+      dispH = containerH;
+      dispW = containerH * videoRatio;
+      offY = 0;
+      offX = (containerW - dispW) / 2;
+    }
+    return { dispW, dispH, offX, offY, containerW, containerH };
+  }
+
+  function syncOverlayCanvasSize() {
+    const canvas = els.liveOverlay;
+    const rect = videoDisplayRect();
+    if (canvas.width !== rect.containerW) canvas.width = rect.containerW;
+    if (canvas.height !== rect.containerH) canvas.height = rect.containerH;
+    return rect;
+  }
+
+  function clearLiveOverlay() {
+    const canvas = els.liveOverlay;
+    canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function drawDefaultGuideOverlay() {
+    const canvas = els.liveOverlay;
+    const rect = syncOverlayCanvasSize();
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.setLineDash([8, 8]);
+    ctx.strokeStyle = "rgba(255,255,255,0.55)";
+    ctx.lineWidth = 3;
+    const pad = 24;
+    ctx.strokeRect(rect.offX + pad, rect.offY + pad, rect.dispW - pad * 2, rect.dispH - pad * 2 - 100);
+    ctx.setLineDash([]);
+  }
+
+  function drawLiveOverlay(normPoints, stable) {
+    const canvas = els.liveOverlay;
+    const rect = syncOverlayCanvasSize();
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const pts = normPoints.map((p) => ({
+      x: rect.offX + p.x * rect.dispW,
+      y: rect.offY + p.y * rect.dispH
+    }));
+
+    ctx.strokeStyle = stable ? "#3fa668" : "#a8214a";
+    ctx.fillStyle = stable ? "rgba(63,166,104,0.18)" : "rgba(168,33,74,0.15)";
+    ctx.lineWidth = stable ? 4 : 3;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    pts.slice(1).forEach((p) => ctx.lineTo(p.x, p.y));
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fill();
   }
 
   function handleChoosePhoto(e) {

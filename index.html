@@ -38,7 +38,7 @@
 <section id="screen-camera" class="screen">
   <div class="camera-wrap">
     <video id="video" autoplay playsinline muted></video>
-    <div class="frame-guide"></div>
+    <canvas id="liveOverlay" class="live-overlay"></canvas>
     <p id="cameraStatus" class="camera-status hidden"></p>
     <div class="camera-controls">
       <button id="cameraCancelBtn" class="camera-side-btn">Cancel</button>
@@ -126,7 +126,6 @@
   };
 </script>
 <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 
 <!-- App -->
 <script src="js/config.js"></script>

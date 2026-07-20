@@ -3,24 +3,28 @@
 
 const CONFIG = {
   // --- Google Drive backup ---
-  // Set to true once GOOGLE_CLIENT_ID below is filled in. Until then, the
+  // Set to true once APPS_SCRIPT_URL below is filled in. Until then, the
   // "Back up to Drive" button stays hidden and drivers just get email share.
-  DRIVE_BACKUP_ENABLED: true,
+  DRIVE_BACKUP_ENABLED: false,
 
-  // OAuth 2.0 Client ID (Web application type) from Google Cloud Console.
-  // Steps: console.cloud.google.com -> APIs & Services -> Credentials ->
-  // Create Credentials -> OAuth client ID -> Web application ->
-  // Authorized JavaScript origins: add https://nbr1hawgfan.github.io (or
-  // wherever this ends up hosted). Also enable the "Google Drive API" under
-  // Library first, or the token request will fail.
-  GOOGLE_CLIENT_ID: "991003971410-lai77e45d7tfp2qq6ghf8gbaaf5u0n1b.apps.googleusercontent.com",
+  // Web App URL from deploying apps-script/Code.gs (ends in /exec).
+  // No driver ever signs into Google — this relay runs under your account
+  // and saves into the shared folder server-side. See apps-script/Code.gs
+  // for full deploy steps.
+  APPS_SCRIPT_URL: "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE",
 
-  // Narrow scope on purpose: this only lets the app see/create files IT
-  // creates, not a driver's whole Drive. No admin review headaches.
-  GOOGLE_DRIVE_SCOPE: "https://www.googleapis.com/auth/drive.file",
+  // If true, drivers are prompted once for a PIN (set server-side in
+  // Code.gs's SHARED_PIN) before their first backup, then it's remembered
+  // on that phone. Since the Apps Script deployment has to be set to
+  // "Anyone" access to avoid requiring a Google sign-in, this is what keeps
+  // a stranger who stumbles on the URL from spamming the Drive folder.
+  // Leave both this and Code.gs's SHARED_PIN blank/false to skip entirely.
+  REQUIRE_PIN: false,
 
   // Folder ID pulled from:
   // https://drive.google.com/drive/folders/1ofdsEsllKtiJ_y1N5nuXIb1Unw0ZjXYG
+  // (Reference only — the actual folder ID used at upload time lives in
+  // apps-script/Code.gs's FOLDER_ID, since the relay decides where files go.)
   DRIVE_FOLDER_ID: "1ofdsEsllKtiJ_y1N5nuXIb1Unw0ZjXYG",
 
   // --- PDF output ---

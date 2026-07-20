@@ -40,6 +40,10 @@ const Scanner = (() => {
     else readyCallbacks.push(cb);
   }
 
+  function isReady() {
+    return cvReady && !!window.cv && !!cv.Mat;
+  }
+
   /**
    * Finds the four corners of the most likely document in the image.
    * Returns points in image pixel coordinates, ordered
@@ -134,6 +138,20 @@ const Scanner = (() => {
     }
   }
 
+  // Rejects candidates that are merely large without being roughly
+  // rectangular — a shadow, a reflection, or the tabletop itself can easily
+  // out-size the actual document, and previously "largest area wins" would
+  // pick those and warp to their (wrong) shape. Comparing the contour's area
+  // to its own bounding box's area catches this cheaply: a real document
+  // fills most of its bounding box; an irregular blob doesn't.
+  function isRectangleLike(contour, area) {
+    const rect = cv.boundingRect(contour);
+    const boxArea = rect.width * rect.height;
+    if (boxArea === 0) return false;
+    const extent = area / boxArea;
+    return extent > 0.55;
+  }
+
   // Runs Otsu auto-thresholding + contour finding, looking for one dominant
   // light (or dark, if invert=true) rectangular region — the document.
   function findLargestThresholdCandidate(gray, imgArea, invert) {
@@ -148,8 +166,10 @@ const Scanner = (() => {
       cv.threshold(gray, thresh, 0, 255, flags);
 
       // Close small gaps (text, staples, stains) so the document reads as
-      // one solid connected region rather than a speckled mess.
-      const kernel = cv.Mat.ones(9, 9, cv.CV_8U);
+      // one solid connected region rather than a speckled mess. Kept fairly
+      // small so the closed shape doesn't bulge noticeably past the real
+      // paper edge, which was quietly introducing skew even in good light.
+      const kernel = cv.Mat.ones(5, 5, cv.CV_8U);
       cv.morphologyEx(thresh, thresh, cv.MORPH_CLOSE, kernel);
       kernel.delete();
 
@@ -158,7 +178,7 @@ const Scanner = (() => {
       for (let i = 0; i < contours.size(); i++) {
         const contour = contours.get(i);
         const area = Math.abs(cv.contourArea(contour));
-        if (area > imgArea * 0.1 && area < imgArea * 0.98 && area > winnerArea) {
+        if (area > imgArea * 0.1 && area < imgArea * 0.98 && area > winnerArea && isRectangleLike(contour, area)) {
           if (winner) winner.delete();
           winner = contour.clone();
           winnerArea = area;
@@ -197,7 +217,7 @@ const Scanner = (() => {
         const area = Math.abs(cv.contourArea(contour));
         // Meaningful chunk of the frame, but not the whole frame (that's
         // usually the photo border/background, not the paper).
-        if (area > imgArea * 0.1 && area < imgArea * 0.98 && area > winnerArea) {
+        if (area > imgArea * 0.1 && area < imgArea * 0.98 && area > winnerArea && isRectangleLike(contour, area)) {
           if (winner) winner.delete();
           winner = contour.clone();
           winnerArea = area;
@@ -341,5 +361,5 @@ const Scanner = (() => {
     return canvas;
   }
 
-  return { whenReady, detectCorners, defaultCorners, warpToCanvas, applyFilter, orderCorners, clampCorners };
+  return { whenReady, isReady, detectCorners, defaultCorners, warpToCanvas, applyFilter, orderCorners, clampCorners };
 })();

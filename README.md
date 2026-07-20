@@ -5,23 +5,28 @@ them, and send them out — no toolkit navigation, just the scanner.
 
 ## What it does
 
-1. **Camera capture** with a framing guide, or "Choose Photo" to pick an
-   existing image.
-2. **Auto edge detection** — OpenCV.js finds the document's four corners on
-   its own (grayscale → blur → Canny edges → contour detection → largest
-   4-point shape). The corners are shown as draggable handles so a driver can
-   nudge them if lighting or glare threw off the auto-detect. This replaces
-   the old fully-manual drag-from-scratch crop.
-3. **Perspective warp** — straightens the document flat regardless of the
+1. **Camera capture** with a live-detection overlay, or "Choose Photo" to
+   pick an existing image.
+2. **Live auto-detect + auto-capture** — while the camera preview is running,
+   it checks for a document a couple times a second and outlines it live. If
+   that outline holds steady (same position and size) for several
+   consecutive checks, it captures on its own — no tap needed. Tapping the
+   shutter always works too, any time.
+3. **Corner refinement** — after capture, a fuller detection pass runs on
+   the full-resolution photo and shows draggable corner handles (with a
+   zoomed loupe while dragging, for precision) in case the live pass wasn't
+   exact.
+4. **Perspective warp** — straightens the document flat regardless of the
    camera angle.
-4. **Filters** — Original / B&W / Sharpen, same as the toolkit's Doc Scanner.
-5. **Multi-page** — add pages, remove pages, reorder isn't included yet (single
+5. **Filters** — Original / B&W / Sharpen, same as the toolkit's Doc Scanner.
+6. **Multi-page** — add pages, remove pages, reorder isn't included yet (single
    BOL scans are usually in order as shot; can add if it comes up).
-6. **Share** — `navigator.share()` hands the finished PDF straight to the
+7. **Share** — `navigator.share()` hands the finished PDF straight to the
    Android share sheet (Gmail, Outlook, Messages, whatever's installed) with
    the file already attached. Falls back to a plain download on browsers
    that don't support file sharing (mainly iOS Safari).
-7. **Drive backup** — optional, off by default until configured (see below).
+8. **Drive backup** — optional, off by default until configured (see below).
+   No driver sign-in required.
 
 ## Hosting
 
@@ -31,39 +36,41 @@ deploy — the only third-party code is loaded from CDNs at runtime):
 
 - `jsPDF` — PDF assembly
 - `OpenCV.js` — edge detection & perspective warp
-- Google Identity Services — Drive sign-in (only loads/matters if Drive
-  backup is turned on)
 
 The service worker caches the OpenCV.js WASM file (~8 MB) the first time it
 loads, so after that first load it works offline in a truck with no signal.
+(Drive backup itself still needs a connection — it's a plain POST to your
+Apps Script relay, not something the service worker caches or queues.)
 
 ## Turning on Google Drive backup
 
-This is the one piece that needs your action — I can't create a Google Cloud
-OAuth client for you. Takes about 10 minutes:
+Rebuilt in v1.3.0 to match your GAS projects' pattern — drivers never sign
+into Google. The PWA POSTs the finished PDF to an Apps Script Web App
+deployed under your own account, which saves it into the shared folder
+server-side. No Gmail account needed on the driver's phone, no per-driver
+OAuth consent, no folder-sharing per person.
 
-1. Go to [console.cloud.google.com](https://console.cloud.google.com) →
-   create or select a project.
-2. **APIs & Services → Library** → search "Google Drive API" → **Enable**.
-3. **APIs & Services → Credentials** → **Create Credentials** → **OAuth
-   client ID** → Application type: **Web application**.
-4. Under **Authorized JavaScript origins**, add the exact URL this app is
-   hosted at (e.g. `https://nbr1hawgfan.github.io` — origin only, no path).
-5. Copy the generated Client ID.
-6. Open `js/config.js`, paste it into `GOOGLE_CLIENT_ID`, and flip
+1. Go to [script.google.com/create](https://script.google.com/create) to
+   start a new standalone script.
+2. Paste in the contents of `apps-script/Code.gs` from this repo, replacing
+   whatever's there by default.
+3. The folder ID is already set to the one you shared
+   (`1ofdsEsllKtiJ_y1N5nuXIb1Unw0ZjXYG`). Change `FOLDER_ID` in the script if
+   that ever changes.
+4. **Deploy → New deployment → type: Web app.**
+   - Execute as: **Me**
+   - Who has access: **Anyone** (not "Anyone with Google account" — that
+     would bring the sign-in requirement right back)
+5. Copy the Web app URL (ends in `/exec`).
+6. Paste that URL into `js/config.js` as `APPS_SCRIPT_URL`, and set
    `DRIVE_BACKUP_ENABLED` to `true`.
-7. First time each driver taps "Back Up to Drive," they'll see a Google
-   sign-in popup and a consent screen. If the project is still in "Testing"
-   publishing status in Google Cloud, you'll need to add each driver's
-   Google account under **OAuth consent screen → Test users**, or publish
-   the app (Drive-scope apps need Google's verification review to publish
-   for external users — for a handful of named drivers, Testing mode with
-   test users added is the simpler path and doesn't require review).
+7. Optional: since "Anyone" access means anyone with the URL could technically
+   POST to it, set `SHARED_PIN` in `Code.gs` to a short PIN and set
+   `REQUIRE_PIN: true` in `config.js`. Drivers get prompted once per phone,
+   then it's remembered locally — same shape as the Samsara relay's PIN gate.
 
-The Drive folder is already wired to the one you shared:
-`DRIVE_FOLDER_ID: "1ofdsEsllKtiJ_y1N5nuXIb1Unw0ZjXYG"` in `js/config.js`.
-The scope requested (`drive.file`) only lets the app see files it creates —
-not a driver's whole Drive.
+That's it — no Google Cloud project, no OAuth client, no test users, no
+per-driver folder sharing.
 
 ## Notes for real-world testing
 
@@ -79,6 +86,8 @@ not a driver's whole Drive.
   Safari; only the one-tap email share degrades to a manual download+attach.
 
 ## Version
+
+v1.3.0 — Drive backup rebuilt as an Apps Script relay (no driver Google sign-in required, matching the existing GAS project pattern) since not all drivers have Gmail accounts. Added live edge detection with auto-capture in the camera preview itself, not just after the shutter. Fixed corner-selection logic that could pick a large-but-wrong shape (shadow, tabletop) over the actual document, which was the likely cause of skewed results even in good lighting. July 2026.
 
 v1.2.0 — auto-detect now uses brightness/contrast thresholding as the primary method (Canny as backup), which holds up much better against cluttered real-world backgrounds like a truck cab than edge detection alone. Added a magnifier loupe while dragging corners for precise placement, since the perspective warp is sensitive to corner accuracy in a way the old simple crop wasn't. July 2026.
 
