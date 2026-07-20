@@ -5,7 +5,7 @@ const CONFIG = {
   // --- Google Drive backup ---
   // Set to true once GOOGLE_CLIENT_ID below is filled in. Until then, the
   // "Back up to Drive" button stays hidden and drivers just get email share.
-  DRIVE_BACKUP_ENABLED: false,
+  DRIVE_BACKUP_ENABLED: true,
 
   // OAuth 2.0 Client ID (Web application type) from Google Cloud Console.
   // Steps: console.cloud.google.com -> APIs & Services -> Credentials ->
@@ -13,7 +13,7 @@ const CONFIG = {
   // Authorized JavaScript origins: add https://nbr1hawgfan.github.io (or
   // wherever this ends up hosted). Also enable the "Google Drive API" under
   // Library first, or the token request will fail.
-  GOOGLE_CLIENT_ID: "YOUR_CLIENT_ID.apps.googleusercontent.com",
+  GOOGLE_CLIENT_ID: "991003971410-lai77e45d7tfp2qq6ghf8gbaaf5u0n1b.apps.googleusercontent.com",
 
   // Narrow scope on purpose: this only lets the app see/create files IT
   // creates, not a driver's whole Drive. No admin review headaches.
