@@ -33,7 +33,7 @@ const CONFIG = {
 
   // --- Branding ---
   BRAND_NAME: "LWH Document Scan",
-  BRAND_TEAL: "#0e6e8c",
-  BRAND_TEAL_DARK: "#0a4f66",
-  BRAND_TEAL_LIGHT: "#17a2bf"
+  BRAND_TEAL: "#0a5870",
+  BRAND_TEAL_DARK: "#073e50",
+  BRAND_TEAL_LIGHT: "#128aa3"
 };

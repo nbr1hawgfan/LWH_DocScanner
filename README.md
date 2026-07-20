@@ -87,6 +87,8 @@ per-driver folder sharing.
 
 ## Version
 
+v1.5.1 — darkened the teal a notch per feedback (#0a5870 instead of #0e6e8c). Same palette, just deeper.
+
 v1.5.0 — rebranded to "LWH Document Scan" per Transportation's request, so drivers can tell it apart from other apps on their phone at a glance. Switched from the dark maroon theme to a light theme with a blue/teal accent (also holds up better in direct sunlight through a windshield than a dark UI does). New icon in the same blue/teal. Camera and photo-review screens intentionally stayed dark — that's normal for any camera/photo view, light theme or not. July 2026.
 
 v1.4.1 — added a version number on the home screen so it's easy to confirm which build is actually live on a phone (installed PWAs can be slow to pick up updates). No functional changes otherwise.
