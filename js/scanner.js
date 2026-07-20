@@ -52,66 +52,125 @@ const Scanner = (() => {
     const src = cv.imread(imgElement);
     const gray = new cv.Mat();
     const blurred = new cv.Mat();
-    const edged = new cv.Mat();
-    const contours = new cv.MatVector();
-    const hierarchy = new cv.Mat();
 
-    let best = null;
+    let bestContour = null; // owning Mat we're responsible for deleting
+    let bestArea = 0;
 
     try {
       cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
       cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
 
-      // Canny edge detection handles varying dock/truck-cab lighting better
-      // than a flat threshold.
-      cv.Canny(blurred, edged, 60, 160);
+      const imgArea = src.rows * src.cols;
 
+      // Real-world lighting (dock lights, dashboard glare, dim cab) is
+      // inconsistent, so we try a few Canny threshold pairs rather than
+      // betting everything on one. Cheap to run, much more forgiving.
+      const thresholdPairs = [
+        [60, 160],
+        [30, 90],
+        [90, 200]
+      ];
+
+      for (const [low, high] of thresholdPairs) {
+        const found = findLargestQuadCandidate(gray, blurred, low, high, imgArea);
+        if (found && found.area > bestArea) {
+          if (bestContour) bestContour.delete();
+          bestContour = found.contour;
+          bestArea = found.area;
+        } else if (found) {
+          found.contour.delete();
+        }
+      }
+
+      if (!bestContour) return null;
+
+      // First choice: a clean 4-point polygon approximation of the winning
+      // contour, tried at a couple of tolerance levels.
+      for (const epsilonFactor of [0.02, 0.035, 0.05]) {
+        const peri = cv.arcLength(bestContour, true);
+        const approx = new cv.Mat();
+        cv.approxPolyDP(bestContour, approx, epsilonFactor * peri, true);
+        if (approx.rows === 4) {
+          const pts = [];
+          for (let i = 0; i < 4; i++) {
+            pts.push({ x: approx.data32S[i * 2], y: approx.data32S[i * 2 + 1] });
+          }
+          approx.delete();
+          bestContour.delete();
+          return orderCorners(pts);
+        }
+        approx.delete();
+      }
+
+      // Fallback: the contour didn't simplify cleanly to 4 points (rounded
+      // corners, a bit of noise on the edge) — take its minimum-area
+      // bounding rectangle instead. Still gives a real, angled quad rather
+      // than forcing a manual crop.
+      const rotatedRect = cv.minAreaRect(bestContour);
+      bestContour.delete();
+      const pts = rotatedRectToPoints(rotatedRect);
+      return orderCorners(pts);
+    } finally {
+      src.delete();
+      gray.delete();
+      blurred.delete();
+    }
+  }
+
+  // Runs edge detection + contour finding for one threshold pair and returns
+  // the largest contour that clears the minimum-area bar (not necessarily a
+  // clean quad yet — that's resolved by the caller).
+  function findLargestQuadCandidate(gray, blurred, low, high, imgArea) {
+    const edged = new cv.Mat();
+    const contours = new cv.MatVector();
+    const hierarchy = new cv.Mat();
+    let winner = null;
+    let winnerArea = 0;
+
+    try {
+      cv.Canny(blurred, edged, low, high);
       const kernel = cv.Mat.ones(5, 5, cv.CV_8U);
       cv.dilate(edged, edged, kernel);
       kernel.delete();
 
       cv.findContours(edged, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
-      const imgArea = src.rows * src.cols;
-      let bestArea = 0;
-
       for (let i = 0; i < contours.size(); i++) {
         const contour = contours.get(i);
-        const peri = cv.arcLength(contour, true);
-        const approx = new cv.Mat();
-        cv.approxPolyDP(contour, approx, 0.02 * peri, true);
-
-        if (approx.rows === 4) {
-          const area = Math.abs(cv.contourArea(approx));
-          // Document should be a meaningful chunk of the frame but not the
-          // entire frame (that's usually the photo border, not the paper).
-          if (area > imgArea * 0.15 && area > bestArea) {
-            bestArea = area;
-            if (best) best.delete();
-            best = approx.clone();
-          }
+        const area = Math.abs(cv.contourArea(contour));
+        // Meaningful chunk of the frame, but not the whole frame (that's
+        // usually the photo border/background, not the paper).
+        if (area > imgArea * 0.1 && area < imgArea * 0.98 && area > winnerArea) {
+          if (winner) winner.delete();
+          winner = contour.clone();
+          winnerArea = area;
         }
-        approx.delete();
         contour.delete();
       }
-
-      if (best) {
-        const pts = [];
-        for (let i = 0; i < 4; i++) {
-          pts.push({ x: best.data32S[i * 2], y: best.data32S[i * 2 + 1] });
-        }
-        best.delete();
-        return orderCorners(pts);
-      }
-      return null;
     } finally {
-      src.delete();
-      gray.delete();
-      blurred.delete();
       edged.delete();
       contours.delete();
       hierarchy.delete();
     }
+
+    return winner ? { contour: winner, area: winnerArea } : null;
+  }
+
+  // Converts an OpenCV RotatedRect (center/size/angle) into its four corner
+  // points — the same math as cv2.boxPoints(), which isn't exposed directly
+  // in opencv.js.
+  function rotatedRectToPoints(rect) {
+    const angleRad = (rect.angle * Math.PI) / 180;
+    const b = Math.cos(angleRad) * 0.5;
+    const a = Math.sin(angleRad) * 0.5;
+    const cx = rect.center.x, cy = rect.center.y;
+    const w = rect.size.width, h = rect.size.height;
+
+    const p0 = { x: cx - a * h - b * w, y: cy + b * h - a * w };
+    const p1 = { x: cx + a * h - b * w, y: cy - b * h - a * w };
+    const p2 = { x: 2 * cx - p0.x, y: 2 * cy - p0.y };
+    const p3 = { x: 2 * cx - p1.x, y: 2 * cy - p1.y };
+    return [p0, p1, p2, p3];
   }
 
   // Sorts 4 arbitrary points into [TL, TR, BR, BL] so warp math is consistent
@@ -124,6 +183,16 @@ const Scanner = (() => {
     const tr = pts[diff.indexOf(Math.max(...diff))];
     const bl = pts[diff.indexOf(Math.min(...diff))];
     return [tl, tr, br, bl];
+  }
+
+  // The minAreaRect fallback can extend a few pixels past the actual image
+  // (it's a bounding rect, not a clipped one) — pull points back on-frame so
+  // drag handles never start off-canvas.
+  function clampCorners(pts, width, height) {
+    return pts.map((p) => ({
+      x: Math.min(Math.max(p.x, 0), width),
+      y: Math.min(Math.max(p.y, 0), height)
+    }));
   }
 
   // Default corners when auto-detect can't find a confident quadrilateral —
@@ -215,5 +284,5 @@ const Scanner = (() => {
     return canvas;
   }
 
-  return { whenReady, detectCorners, defaultCorners, warpToCanvas, applyFilter, orderCorners };
+  return { whenReady, detectCorners, defaultCorners, warpToCanvas, applyFilter, orderCorners, clampCorners };
 })();

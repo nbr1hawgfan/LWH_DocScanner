@@ -14,7 +14,7 @@ const App = (() => {
   function cacheEls() {
     [
       "screen-home", "screen-camera", "screen-edit", "screen-pages", "screen-result",
-      "video", "captureBtn", "choosePhotoInput", "cameraCancelBtn",
+      "video", "captureBtn", "choosePhotoInput", "cameraCancelBtn", "cameraStatus",
       "editCanvas", "editRedetectBtn", "editConfirmBtn", "editCancelBtn", "editHint",
       "filterOriginal", "filterBw", "filterSharpen",
       "pageList", "pageCount", "addPageBtn", "finishBtn", "backHomeBtn",
@@ -30,18 +30,84 @@ const App = (() => {
   }
 
   // ---------- Camera ----------
+  function setCameraStatus(text) {
+    if (!text) {
+      els.cameraStatus.classList.add("hidden");
+      els.cameraStatus.textContent = "";
+    } else {
+      els.cameraStatus.classList.remove("hidden");
+      els.cameraStatus.textContent = text;
+    }
+  }
+
   async function openCamera() {
     showScreen("camera");
+    els.captureBtn.disabled = true;
+    setCameraStatus("Requesting camera permission\u2026");
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraStatus("This browser can't access the camera here. Use \u201cChoose Photo\u201d below instead.");
+      return;
+    }
+
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+      stream = await requestCameraStream();
+      els.video.srcObject = stream;
+      await waitForVideoReady(els.video);
+      setCameraStatus(null);
+      els.captureBtn.disabled = false;
+    } catch (err) {
+      console.error("Camera error:", err.name, err.message);
+      let msg = "Couldn't start the camera. Use \u201cChoose Photo\u201d below to pick one from your gallery instead.";
+      if (err.name === "NotAllowedError") {
+        msg = "Camera permission was denied. Check your browser/app settings, or use \u201cChoose Photo\u201d below.";
+      } else if (err.name === "NotFoundError") {
+        msg = "No camera found on this device. Use \u201cChoose Photo\u201d below.";
+      } else if (err.name === "NotReadableError") {
+        msg = "Camera is busy or blocked by another app. Close other camera apps, or use \u201cChoose Photo\u201d below.";
+      }
+      setCameraStatus(msg);
+    }
+  }
+
+  // Tries the rear camera first; some desktop/laptop setups reject the
+  // "environment" constraint outright, so we fall back to any camera rather
+  // than leaving the driver stuck.
+  async function requestCameraStream() {
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: false
       });
-      els.video.srcObject = stream;
     } catch (err) {
-      alert("Couldn't access the camera. You can still use \u201cChoose Photo\u201d below to pick one from your gallery.");
-      console.error(err);
+      if (err.name === "OverconstrainedError" || err.name === "NotFoundError") {
+        return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+      throw err;
     }
+  }
+
+  // Resolves once the video element actually has real frames flowing
+  // (videoWidth/Height > 0), not just once srcObject is assigned — assigning
+  // the stream doesn't guarantee a frame has decoded yet.
+  function waitForVideoReady(video) {
+    return new Promise((resolve, reject) => {
+      if (video.videoWidth > 0 && video.videoHeight > 0) { resolve(); return; }
+
+      const onLoaded = () => { cleanup(); resolve(); };
+      const onError = () => { cleanup(); reject(new Error("Video failed to start")); };
+      const timeout = setTimeout(() => { cleanup(); reject(new Error("Camera timed out starting")); }, 8000);
+
+      function cleanup() {
+        clearTimeout(timeout);
+        video.removeEventListener("loadedmetadata", onLoaded);
+        video.removeEventListener("error", onError);
+      }
+
+      video.addEventListener("loadedmetadata", onLoaded);
+      video.addEventListener("error", onError);
+      video.play().catch(() => {}); // autoplay may already be handling this; ignore duplicate-play rejections
+    });
   }
 
   function stopCamera() {
@@ -53,6 +119,10 @@ const App = (() => {
 
   function capturePhoto() {
     const video = els.video;
+    if (!video.videoWidth || !video.videoHeight) {
+      alert("Camera isn't showing a live picture yet \u2014 give it a second and try again, or use \u201cChoose Photo.\u201d");
+      return;
+    }
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -90,7 +160,7 @@ const App = (() => {
       } catch (err) {
         console.error("Detection failed", err);
       }
-      corners = detected || Scanner.defaultCorners(w, h);
+      corners = detected ? Scanner.clampCorners(detected, w, h) : Scanner.defaultCorners(w, h);
       els.editHint.textContent = detected
         ? "Edges found \u2014 drag any corner if it needs adjusting."
         : "Couldn't find clean edges automatically \u2014 drag the corners to match the document.";
@@ -108,7 +178,7 @@ const App = (() => {
     const detected = Scanner.detectCorners(currentPhotoImg);
     const w = getImgWidth(currentPhotoImg);
     const h = getImgHeight(currentPhotoImg);
-    corners = detected || Scanner.defaultCorners(w, h);
+    corners = detected ? Scanner.clampCorners(detected, w, h) : Scanner.defaultCorners(w, h);
     els.editHint.textContent = detected
       ? "Edges found \u2014 drag any corner if it needs adjusting."
       : "Still couldn't find clean edges \u2014 drag the corners to match the document.";

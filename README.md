@@ -80,4 +80,6 @@ not a driver's whole Drive.
 
 ## Version
 
+v1.1.0 — camera reliability fixes (permission/error states, rear-camera fallback), layout fix for controls overlapping the frame guide, and multi-pass edge detection with a minimum-area-rect fallback for stronger auto-crop. July 2026.
+
 v1.0.0 — initial standalone build, July 2026.
