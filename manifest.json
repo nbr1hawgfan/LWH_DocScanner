@@ -1,0 +1,25 @@
+{
+  "name": "LWH Driver Scan",
+  "short_name": "Driver Scan",
+  "description": "Scan bills of lading and documents, auto-crop, and send from your truck.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a1a1a",
+  "theme_color": "#7d1935",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Scan",
+      "short_name": "Scan",
+      "description": "Start scanning a new document",
+      "url": "./index.html?action=new",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
