@@ -62,9 +62,26 @@ const Scanner = (() => {
 
       const imgArea = src.rows * src.cols;
 
-      // Real-world lighting (dock lights, dashboard glare, dim cab) is
-      // inconsistent, so we try a few Canny threshold pairs rather than
-      // betting everything on one. Cheap to run, much more forgiving.
+      // Primary method: brightness-contrast thresholding. A document is
+      // almost always noticeably lighter (or occasionally darker) than what
+      // it's sitting on — a dashboard, a seat, a clipboard — which holds up
+      // far better in a cluttered truck cab than edge-based detection does.
+      // We try both polarities since we don't know if the page is the light
+      // or dark region until we look.
+      for (const invert of [false, true]) {
+        const found = findLargestThresholdCandidate(gray, imgArea, invert);
+        if (found && found.area > bestArea) {
+          if (bestContour) bestContour.delete();
+          bestContour = found.contour;
+          bestArea = found.area;
+        } else if (found) {
+          found.contour.delete();
+        }
+      }
+
+      // Secondary method: Canny edge detection, which catches cases the
+      // threshold method misses — mainly uneven/harsh lighting where there
+      // isn't one clean brightness boundary.
       const thresholdPairs = [
         [60, 160],
         [30, 90],
@@ -115,6 +132,46 @@ const Scanner = (() => {
       gray.delete();
       blurred.delete();
     }
+  }
+
+  // Runs Otsu auto-thresholding + contour finding, looking for one dominant
+  // light (or dark, if invert=true) rectangular region — the document.
+  function findLargestThresholdCandidate(gray, imgArea, invert) {
+    const thresh = new cv.Mat();
+    const contours = new cv.MatVector();
+    const hierarchy = new cv.Mat();
+    let winner = null;
+    let winnerArea = 0;
+
+    try {
+      const flags = cv.THRESH_OTSU | (invert ? cv.THRESH_BINARY_INV : cv.THRESH_BINARY);
+      cv.threshold(gray, thresh, 0, 255, flags);
+
+      // Close small gaps (text, staples, stains) so the document reads as
+      // one solid connected region rather than a speckled mess.
+      const kernel = cv.Mat.ones(9, 9, cv.CV_8U);
+      cv.morphologyEx(thresh, thresh, cv.MORPH_CLOSE, kernel);
+      kernel.delete();
+
+      cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+      for (let i = 0; i < contours.size(); i++) {
+        const contour = contours.get(i);
+        const area = Math.abs(cv.contourArea(contour));
+        if (area > imgArea * 0.1 && area < imgArea * 0.98 && area > winnerArea) {
+          if (winner) winner.delete();
+          winner = contour.clone();
+          winnerArea = area;
+        }
+        contour.delete();
+      }
+    } finally {
+      thresh.delete();
+      contours.delete();
+      hierarchy.delete();
+    }
+
+    return winner ? { contour: winner, area: winnerArea } : null;
   }
 
   // Runs edge detection + contour finding for one threshold pair and returns

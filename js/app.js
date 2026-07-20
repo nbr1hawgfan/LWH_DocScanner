@@ -15,7 +15,7 @@ const App = (() => {
     [
       "screen-home", "screen-camera", "screen-edit", "screen-pages", "screen-result",
       "video", "captureBtn", "choosePhotoInput", "cameraCancelBtn", "cameraStatus",
-      "editCanvas", "editRedetectBtn", "editConfirmBtn", "editCancelBtn", "editHint",
+      "editCanvas", "editLoupe", "editRedetectBtn", "editConfirmBtn", "editCancelBtn", "editHint",
       "filterOriginal", "filterBw", "filterSharpen",
       "pageList", "pageCount", "addPageBtn", "finishBtn", "backHomeBtn",
       "resultPdfName", "shareBtn", "driveBtn", "downloadBtn", "startOverBtn",
@@ -247,6 +247,7 @@ const App = (() => {
     if (closestDist < 40) {
       dragIndex = closest;
       e.preventDefault();
+      updateLoupe(p);
     }
   }
 
@@ -259,9 +260,62 @@ const App = (() => {
       y: Math.min(Math.max(p.y / editScale, 0), getImgHeight(currentPhotoImg))
     };
     drawEditCanvas();
+    updateLoupe(p);
   }
 
-  function handleDragEnd() { dragIndex = -1; }
+  function handleDragEnd() {
+    dragIndex = -1;
+    els.editLoupe.classList.add("hidden");
+  }
+
+  // Shows a zoomed-in circular preview of the area right around the corner
+  // being dragged, positioned above the fingertip so it isn't covered by the
+  // hand — same trick Notes/Adobe Scan use, since a fingertip is much bigger
+  // than the pixel precision a perspective warp actually needs.
+  function updateLoupe(displayPoint) {
+    const loupe = els.editLoupe;
+    const wrap = els.editCanvas.parentElement;
+    const canvas = els.editCanvas;
+
+    const ZOOM = 3;
+    const SRC_SIZE = loupe.width / ZOOM; // region of the display canvas to sample
+
+    const ctx = loupe.getContext("2d");
+    ctx.clearRect(0, 0, loupe.width, loupe.height);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(loupe.width / 2, loupe.height / 2, loupe.width / 2, 0, Math.PI * 2);
+    ctx.clip();
+
+    const sx = Math.max(0, Math.min(canvas.width - SRC_SIZE, displayPoint.x - SRC_SIZE / 2));
+    const sy = Math.max(0, Math.min(canvas.height - SRC_SIZE, displayPoint.y - SRC_SIZE / 2));
+    ctx.drawImage(canvas, sx, sy, SRC_SIZE, SRC_SIZE, 0, 0, loupe.width, loupe.height);
+
+    // Crosshair marking exactly where the corner will land.
+    ctx.strokeStyle = "#a8214a";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(loupe.width / 2 - 12, loupe.height / 2);
+    ctx.lineTo(loupe.width / 2 + 12, loupe.height / 2);
+    ctx.moveTo(loupe.width / 2, loupe.height / 2 - 12);
+    ctx.lineTo(loupe.width / 2, loupe.height / 2 + 12);
+    ctx.stroke();
+    ctx.restore();
+
+    // Position above the fingertip, offset within the wrap element's bounds.
+    const wrapRect = wrap.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    const canvasOffsetX = canvasRect.left - wrapRect.left;
+    const canvasOffsetY = canvasRect.top - wrapRect.top;
+
+    let left = canvasOffsetX + displayPoint.x - loupe.width / 2;
+    let top = canvasOffsetY + displayPoint.y - loupe.height - 30;
+    if (top < 0) top = canvasOffsetY + displayPoint.y + 30; // flip below if too close to top
+
+    loupe.style.left = `${left}px`;
+    loupe.style.top = `${top}px`;
+    loupe.classList.remove("hidden");
+  }
 
   function confirmEdit() {
     rawWarpCanvas = Scanner.warpToCanvas(currentPhotoImg, corners);

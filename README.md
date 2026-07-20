@@ -80,6 +80,8 @@ not a driver's whole Drive.
 
 ## Version
 
+v1.2.0 — auto-detect now uses brightness/contrast thresholding as the primary method (Canny as backup), which holds up much better against cluttered real-world backgrounds like a truck cab than edge detection alone. Added a magnifier loupe while dragging corners for precise placement, since the perspective warp is sensitive to corner accuracy in a way the old simple crop wasn't. July 2026.
+
 v1.1.0 — camera reliability fixes (permission/error states, rear-camera fallback), layout fix for controls overlapping the frame guide, and multi-pass edge detection with a minimum-area-rect fallback for stronger auto-crop. July 2026.
 
 v1.0.0 — initial standalone build, July 2026.
