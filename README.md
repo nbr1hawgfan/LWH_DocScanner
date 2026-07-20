@@ -87,6 +87,8 @@ per-driver folder sharing.
 
 ## Version
 
+v1.4.1 — added a version number on the home screen so it's easy to confirm which build is actually live on a phone (installed PWAs can be slow to pick up updates). No functional changes otherwise.
+
 v1.4.0 — larger, consistently-sized page previews after capture (previously shrank as more pages were added), tap-to-zoom full-screen viewer on any page, and a "Preview Full PDF" step on the final screen so drivers (especially those wanting a closer look) can verify legibility before sending to dispatch or Drive. July 2026.
 
 v1.3.0 — Drive backup rebuilt as an Apps Script relay (no driver Google sign-in required, matching the existing GAS project pattern) since not all drivers have Gmail accounts. Added live edge detection with auto-capture in the camera preview itself, not just after the shutter. Fixed corner-selection logic that could pick a large-but-wrong shape (shadow, tabletop) over the actual document, which was the likely cause of skewed results even in good lighting. July 2026.
